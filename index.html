@@ -1597,108 +1597,157 @@
     // ===== Date Confirmation =====
     function confirmDate() {
       const slots = document.querySelectorAll('.date-slot');
-      const dateEntries = [];
-      const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
+      const dateParts = [];
       slots.forEach(slot => {
         const dateVal = slot.querySelector('input[type="date"]').value;
         const timeVal = slot.querySelector('input[type="time"]').value;
         if (dateVal) {
           const d = new Date(dateVal + 'T00:00:00');
-          const dateDisplay = `${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
-          dateEntries.push({ date: dateDisplay, time: timeVal || '18:00' });
+          const dateDisplay = `${d.getMonth() + 1}/${d.getDate()}${weekdays[d.getDay()]}`;
+          dateParts.push(dateDisplay + '~' + (timeVal || '18:00'));
         }
       });
 
-      if (dateEntries.length === 0) return;
+      if (dateParts.length === 0) return;
 
       const locVal = document.getElementById('locationInput').value.trim() || '见面再定';
-
       const types = inviteTypes.length ? inviteTypes : ['eat'];
-      const activitiesByType = {};
-      types.forEach(type => {
-        activitiesByType[type] = selectedActivities
-          .filter(a => a.type === type)
-          .map(a => ({ e: a.emoji, l: a.label }));
-      });
-      const resultData = {
-        f: inviterName,
-        n: responderName,
-        ts: types,
-        a: activitiesByType,
-        d: dateEntries.map(e => ({ d: e.date, t: e.time })),
-        l: locVal
-      };
 
-      // Generate short base64 result link
+      // Build compact format: f|n|e:lbl1+lbl2,d:lbl1,p:lbl1|date1~time1;date2~time2|location
+      // Preset items: just label. Custom items: *label
+      const typeParts = types.map(type => {
+        const info = TYPE_INFO[type] || TYPE_INFO.eat;
+        const defaults = DEFAULT_OPTIONS[type] || [];
+        const acts = selectedActivities.filter(a => a.type === type);
+        const labels = acts.map(a => {
+          const isPreset = defaults.some(d => d.label === a.label);
+          return isPreset ? a.label : '*' + a.label;
+        });
+        return info.code + ':' + labels.join('+');
+      }).join(',');
+
+      // Escape pipes in values (replace | with space)
+      const esc = s => (s || '').replace(/\|/g, ' ');
+      const compact = [esc(inviterName), esc(responderName), typeParts, dateParts.join(';'), esc(locVal)].join('|');
+
       const base = window.location.origin + window.location.pathname;
-      const resultLink = `${base}?r=${btoaUrl(JSON.stringify(resultData))}`;
+      const resultLink = `${base}?r=${btoaUrl(compact)}`;
 
-      // Auto-copy result link to clipboard
       copyToClipboard(resultLink);
       window._shareLink = resultLink;
 
-      // Go to "心愿已送达" page
       goToStep('stepSent');
       setTimeout(launchConfetti, 300);
     }
 
     // ===== Result Page =====
+    // Build emoji lookup from DEFAULT_OPTIONS for result page
+    const EMOJI_LOOKUP = {};
+    Object.keys(DEFAULT_OPTIONS).forEach(type => {
+      EMOJI_LOOKUP[type] = {};
+      (DEFAULT_OPTIONS[type] || []).forEach(opt => {
+        EMOJI_LOOKUP[type][opt.label] = opt.emoji;
+      });
+    });
+
     function showResult(encoded) {
       try {
-        const data = JSON.parse(atobUrl(encoded));
-        const types = (Array.isArray(data.ts) && data.ts.length) ? data.ts : (data.t ? [data.t] : ['eat']);
+        const raw = atobUrl(encoded);
+        let data;
 
-        document.getElementById('resultTitle').textContent = `${data.n} 回复了你的约会邀请！💕`;
+        if (raw.startsWith('{')) {
+          // Legacy JSON format — parse directly
+          data = JSON.parse(raw);
+          const types = (Array.isArray(data.ts) && data.ts.length) ? data.ts : (data.t ? [data.t] : ['eat']);
+          _renderResult(data.n || '', types, data.a || {}, (data.d || []).map(e => ({ d: e.d, t: e.t })), data.l || '见面再定');
+        } else {
+          // New compact format: f|n|e:lbl1+lbl2,d:lbl1,p:lbl1|date1~time1;date2~time2|location
+          const parts = raw.split('|');
+          const f = parts[0] || '';
+          const n = parts[1] || '';
+          const typeStr = parts[2] || '';
+          const dateStr = parts[3] || '';
+          const loc = parts[4] || '见面再定';
 
-        const typeLabels = types.map(t => (TYPE_INFO[t] || TYPE_INFO.eat).label).join(' / ');
-        const subEl = document.getElementById('resultSubtitle');
-        if (subEl) subEl.textContent = `TA 想跟你${typeLabels}，快看看选了什么～`;
+          const types = [];
+          const activitiesByType = {};
 
-        const detailsEl = document.getElementById('resultDetails');
-        detailsEl.innerHTML = '';
+          typeStr.split(',').forEach(group => {
+            const idx = group.indexOf(':');
+            if (idx < 0) return;
+            const code = group.slice(0, idx);
+            const labelsStr = group.slice(idx + 1);
+            const type = CODE_TO_TYPE[code];
+            if (!type) return;
+            types.push(type);
+            const defaults = DEFAULT_OPTIONS[type] || [];
+            activitiesByType[type] = labelsStr.split('+').filter(Boolean).map(label => {
+              if (label.startsWith('*')) {
+                return { e: '💝', l: label.slice(1) };
+              }
+              const emoji = (EMOJI_LOOKUP[type] && EMOJI_LOOKUP[type][label]) || '✨';
+              return { e: emoji, l: label };
+            });
+          });
 
-        // Activities grouped by type
-        types.forEach(type => {
-          const info = TYPE_INFO[type] || TYPE_INFO.eat;
-          const acts = (data.a && data.a[type]) || [];
-          const labels = acts.length ? acts.map(a => `${a.e} ${a.l}`).join('、') : '（未选）';
-          detailsEl.innerHTML += `
-            <div class="detail-card full-width">
-              <div class="detail-icon">${info.emoji}</div>
-              <div class="detail-label">${info.label}</div>
-              <div class="detail-value">${labels}</div>
-            </div>
-          `;
-        });
+          const dates = dateStr ? dateStr.split(';').map(d => {
+            const [dt, tm] = d.split('~');
+            return { d: dt || '', t: tm || '' };
+          }) : [];
 
-        // Dates
-        (data.d || []).forEach((entry, i) => {
-          const icon = i === 0 ? '📅' : '➕';
-          detailsEl.innerHTML += `
-            <div class="detail-card">
-              <div class="detail-icon">${icon}</div>
-              <div class="detail-label">时间段 ${i + 1}</div>
-              <div class="detail-value">${entry.d}<br>${entry.t}</div>
-            </div>
-          `;
-        });
-
-        // Location
-        detailsEl.innerHTML += `
-          <div class="detail-card full-width">
-            <div class="detail-icon">📍</div>
-            <div class="detail-label">见面地点</div>
-            <div class="detail-value">${data.l}</div>
-          </div>
-        `;
-
-        document.getElementById('stepResult').classList.add('active');
-        setTimeout(launchConfetti, 300);
+          _renderResult(n, types, activitiesByType, dates, loc);
+        }
       } catch (err) {
-        // Decode failed, show sender mode
         document.getElementById('step0').classList.add('active');
       }
+    }
+
+    function _renderResult(responderName, types, activitiesByType, dates, loc) {
+      document.getElementById('resultTitle').textContent = `${responderName} 回复了你的约会邀请！💕`;
+
+      const typeLabels = types.map(t => (TYPE_INFO[t] || TYPE_INFO.eat).label).join(' / ');
+      const subEl = document.getElementById('resultSubtitle');
+      if (subEl) subEl.textContent = `TA 想跟你${typeLabels}，快看看选了什么～`;
+
+      const detailsEl = document.getElementById('resultDetails');
+      detailsEl.innerHTML = '';
+
+      types.forEach(type => {
+        const info = TYPE_INFO[type] || TYPE_INFO.eat;
+        const acts = activitiesByType[type] || [];
+        const labels = acts.length ? acts.map(a => `${a.e} ${a.l}`).join('、') : '（未选）';
+        detailsEl.innerHTML += `
+          <div class="detail-card full-width">
+            <div class="detail-icon">${info.emoji}</div>
+            <div class="detail-label">${info.label}</div>
+            <div class="detail-value">${labels}</div>
+          </div>
+        `;
+      });
+
+      dates.forEach((entry, i) => {
+        const icon = i === 0 ? '📅' : '➕';
+        detailsEl.innerHTML += `
+          <div class="detail-card">
+            <div class="detail-icon">${icon}</div>
+            <div class="detail-label">时间段 ${i + 1}</div>
+            <div class="detail-value">${entry.d}<br>${entry.t}</div>
+          </div>
+        `;
+      });
+
+      detailsEl.innerHTML += `
+        <div class="detail-card full-width">
+          <div class="detail-icon">📍</div>
+          <div class="detail-label">见面地点</div>
+          <div class="detail-value">${loc}</div>
+        </div>
+      `;
+
+      document.getElementById('stepResult').classList.add('active');
+      setTimeout(launchConfetti, 300);
     }
 
     function startNew() {
