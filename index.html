@@ -423,6 +423,71 @@
       font-weight: 500;
     }
 
+    /* ========== Module Block (Step 0b - sender picks) ========== */
+    .module-block {
+      background: rgba(255, 255, 255, 0.6);
+      border: 1.5px dashed var(--rose-200);
+      border-radius: 18px;
+      padding: 0.9rem 0.9rem 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--rose-700, #be185d);
+    }
+    .module-header .module-emoji { font-size: 1.15rem; }
+    .module-header .module-title { flex: 1; }
+    .module-header .module-required {
+      background: var(--rose-100);
+      color: var(--rose-700, #be185d);
+      font-size: 0.65rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .module-header .module-count {
+      font-size: 0.7rem;
+      color: var(--rose-500);
+      font-weight: 500;
+    }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    /* Preview block used in both step0b preview and step2 multi-type grid */
+    .preview-block {
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 18px;
+      padding: 0.8rem 0.8rem 0.5rem;
+      margin-top: 1rem;
+    }
+    .preview-block-title {
+      font-weight: 600;
+      color: var(--rose-700, #be185d);
+      margin-bottom: 0.6rem;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .preview-block-title .module-required {
+      background: var(--rose-100);
+      color: var(--rose-700, #be185d);
+      font-size: 0.6rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
     /* ========== Date/Time Step (Step 3) ========== */
     .date-list {
       display: flex;
@@ -682,25 +747,59 @@
           <textarea class="form-input" id="senderMessage" placeholder="好久没约会啦，出去走走？" rows="2"></textarea>
         </div>
 
-        <div class="section-label">选择约会类型</div>
-        <div class="type-selector" id="typeSelector">
-          <div class="type-option selected" data-type="eat" onclick="selectType('eat')">
-            <span class="emoji">🍽️</span>
-            <span>吃点什么</span>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="validateStep0AndNext()">下一步 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 0b: Must-pick 3 modules (eat / drink / play) -->
+    <div class="step" id="step0b">
+      <div class="card">
+        <div class="deco-row">
+          <span>🍽️</span><span>🧋</span><span>🎮</span><span>💕</span><span>✨</span>
+        </div>
+        <h1 class="title">挑挑约会菜单 💕</h1>
+        <p class="subtitle">三个类别都选至少一项，让 TA 来挑具体的～</p>
+
+        <!-- Eat module -->
+        <div class="module-block" data-module="eat">
+          <div class="module-header">
+            <span class="module-emoji">🍽️</span>
+            <span class="module-title">吃点什么</span>
+            <span class="module-required">必选</span>
+            <span class="module-count" id="count-eat">已选 0</span>
           </div>
-          <div class="type-option" data-type="drink" onclick="selectType('drink')">
-            <span class="emoji">🧋</span>
-            <span>喝点什么</span>
+          <div class="module-grid" id="grid-eat"></div>
+        </div>
+
+        <!-- Drink module -->
+        <div class="module-block" data-module="drink">
+          <div class="module-header">
+            <span class="module-emoji">🧋</span>
+            <span class="module-title">喝点什么</span>
+            <span class="module-required">必选</span>
+            <span class="module-count" id="count-drink">已选 0</span>
           </div>
-          <div class="type-option" data-type="play" onclick="selectType('play')">
-            <span class="emoji">🎮</span>
-            <span>玩点什么</span>
+          <div class="module-grid" id="grid-drink"></div>
+        </div>
+
+        <!-- Play module -->
+        <div class="module-block" data-module="play">
+          <div class="module-header">
+            <span class="module-emoji">🎮</span>
+            <span class="module-title">玩点什么</span>
+            <span class="module-required">必选</span>
+            <span class="module-count" id="count-play">已选 0</span>
           </div>
+          <div class="module-grid" id="grid-play"></div>
         </div>
 
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="generateLink()">生成邀请链接 ✨</button>
+          <button class="btn btn-primary" id="btnGenFinal" onclick="generateFinalLink()" disabled>三栏都选完才能生成 ✨</button>
+          <button class="btn btn-secondary" onclick="goToStep('step0')">← 上一步</button>
         </div>
+
         <div class="link-output" id="linkOutput">
           <span id="linkText"></span>
         </div>
@@ -709,7 +808,16 @@
         </div>
         <div id="optionsPreview" style="display:none; margin-top:1.5rem;">
           <div class="section-label">TA 会看到这些选项 👀</div>
-          <div class="activity-grid" id="previewGrid" style="pointer-events:none; opacity:0.85;"></div>
+          <div id="previewGrid"></div>
+        </div>
+
+        <div class="progress-dots">
+          <span class="dot"></span>
+          <span class="dot active"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
         </div>
       </div>
     </div>
@@ -729,7 +837,7 @@
         </div>
 
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="goToStep(2)">好呀走起 💕</button>
+          <button class="btn btn-primary" onclick="validateStep1AndNext()">好呀走起 💕</button>
           <button class="btn btn-secondary btn-no" id="btnNo" onclick="handleReject()">下次吧 😅</button>
         </div>
       </div>
@@ -924,20 +1032,28 @@
     const CODE_TO_TYPE = { e: 'eat', d: 'drink', p: 'play' };
 
     // ===== State =====
-    let selectedType = 'eat';
     let selectedActivities = [];
     let rejectCount = 0;
     let inviterName = '';
     let inviterMessage = '';
-    let inviteType = 'eat';
-    let inviteOptions = [];
+    // Multi-type invite: inviteTypes = ['eat','drink','play'] subset
+    let inviteTypes = [];
+    // For each type, the picked options sent by inviter (subset of DEFAULT_OPTIONS[type])
+    // Full DEFAULT_OPTIONS is used when inviter didn't specify (e.g. legacy link)
+    let inviteOptionsByType = {};
     let responderName = '';
     let dateSlotCount = 0;
+    // Sender's picks for the three modules { eat: [idx,...], drink: [...], play: [...] }
+    let senderPicks = { eat: [], drink: [], play: [] };
 
     // ===== Init =====
     (function init() {
       createFloatingHearts();
       checkMode();
+      if (!new URLSearchParams(window.location.search).get('r') &&
+          !new URLSearchParams(window.location.search).get('f')) {
+        renderSenderModules();
+      }
     })();
 
     // ===== Encoding Utilities =====
@@ -963,27 +1079,54 @@
         return;
       }
 
-      // Invited mode: ?f=<name>&t=<type>[&m=<msg>]
+      // Invited mode: ?f=<name>&t=<codes,csv>[&m=<msg>][&o=<base64>]
       const f = params.get('f');
-      const t = params.get('t');
+      const tParam = params.get('t');
       const m = params.get('m');
+      const oParam = params.get('o');
 
       if (f) {
         inviterName = f;
-        inviteType = CODE_TO_TYPE[t] || 'eat';
         inviterMessage = m || '';
-        inviteOptions = DEFAULT_OPTIONS[inviteType] || DEFAULT_OPTIONS.eat;
+
+        // Parse types (csv of type codes: e,d,p). Default to 'eat' if missing/invalid.
+        if (tParam) {
+          inviteTypes = tParam.split(',').map(c => CODE_TO_TYPE[c]).filter(Boolean);
+        }
+        if (!inviteTypes.length) inviteTypes = ['eat'];
+
+        // Restore sender's selected options if present
+        if (oParam) {
+          try {
+            const obj = JSON.parse(atobUrl(oParam));
+            inviteOptionsByType = {};
+            ['eat','drink','play'].forEach(k => {
+              if (Array.isArray(obj[k])) {
+                inviteOptionsByType[k] = obj[k].map(o => ({ emoji: o.e, label: o.l }));
+              }
+            });
+          } catch (e) {
+            inviteOptionsByType = {};
+          }
+        }
+
+        // For any type without explicit picks, fall back to full default list
+        inviteTypes.forEach(type => {
+          if (!inviteOptionsByType[type] || !inviteOptionsByType[type].length) {
+            inviteOptionsByType[type] = (DEFAULT_OPTIONS[type] || []).slice();
+          }
+        });
 
         const titleEl = document.getElementById('inviteTitle');
         const subEl = document.getElementById('inviteSubtitle');
-        const typeInfo = TYPE_INFO[inviteType];
+        const typeLabels = inviteTypes.map(t => TYPE_INFO[t].label).join(' / ');
 
-        titleEl.textContent = `${inviterName} 约你${typeInfo.label}！💕`;
+        titleEl.textContent = `${inviterName} 约你${typeLabels}！💕`;
 
         if (inviterMessage) {
           subEl.textContent = `「${inviterMessage}」`;
         } else {
-          subEl.textContent = '点击下方按钮，选你想吃/想喝/想玩的～';
+          subEl.textContent = '每类都选至少一项，期待你的选择～';
         }
 
         renderActivityGrid();
@@ -994,18 +1137,49 @@
       }
     }
 
-    // ===== Step 0: Type Selector =====
-    function selectType(type) {
-      selectedType = type;
-      document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
-      document.querySelector(`.type-option[data-type="${type}"]`).classList.add('selected');
+    // ===== Sender: render three modules (eat/drink/play) =====
+    function renderSenderModules() {
+      ['eat', 'drink', 'play'].forEach(type => {
+        const grid = document.getElementById(`grid-${type}`);
+        if (!grid) return;
+        grid.innerHTML = '';
+        const opts = DEFAULT_OPTIONS[type] || [];
+        opts.forEach((opt, idx) => {
+          const item = document.createElement('div');
+          item.className = 'activity-item';
+          item.dataset.type = type;
+          item.dataset.idx = idx;
+          item.onclick = () => toggleSenderPick(item, type, idx);
+          item.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
+          grid.appendChild(item);
+        });
+      });
     }
 
-    // ===== Generate Invite Link (short) =====
-    function generateLink() {
-      const name = document.getElementById('senderName').value.trim();
-      const msg = document.getElementById('senderMessage').value.trim();
+    function toggleSenderPick(el, type, idx) {
+      const picks = senderPicks[type];
+      const existIdx = picks.indexOf(idx);
+      if (existIdx >= 0) {
+        picks.splice(existIdx, 1);
+        el.classList.remove('selected');
+      } else {
+        picks.push(idx);
+        el.classList.add('selected');
+      }
+      document.getElementById(`count-${type}`).textContent = `已选 ${picks.length}`;
+      updateGenFinalBtn();
+    }
 
+    function updateGenFinalBtn() {
+      const allFilled = ['eat','drink','play'].every(t => senderPicks[t].length > 0);
+      const btn = document.getElementById('btnGenFinal');
+      btn.disabled = !allFilled;
+      btn.textContent = allFilled ? '生成完整邀请链接 ✨' : '三栏都至少选一项 ✨';
+    }
+
+    // ===== Step 0: validate & go to step 0b =====
+    function validateStep0AndNext() {
+      const name = document.getElementById('senderName').value.trim();
       if (!name) {
         const input = document.getElementById('senderName');
         input.focus();
@@ -1013,32 +1187,58 @@
         setTimeout(() => input.classList.remove('shake'), 500);
         return;
       }
-
       inviterName = name;
-      inviterMessage = msg;
+      inviterMessage = document.getElementById('senderMessage').value.trim();
+      goToStep('step0b');
+    }
+
+    // ===== Generate Final Invite Link (after 3 modules picked) =====
+    function generateFinalLink() {
+      const allFilled = ['eat','drink','play'].every(t => senderPicks[t].length > 0);
+      if (!allFilled) return;
+
+      // Build options blob: { eat: [{e,l},...], drink: [...], play: [...] }
+      const optsPayload = {};
+      ['eat','drink','play'].forEach(type => {
+        const all = DEFAULT_OPTIONS[type] || [];
+        optsPayload[type] = senderPicks[type].map(idx => ({ e: all[idx].emoji, l: all[idx].label }));
+      });
 
       const base = window.location.origin + window.location.pathname;
-      const typeCode = TYPE_INFO[selectedType].code;
-      let link = `${base}?f=${encodeURIComponent(name)}&t=${typeCode}`;
+      const msg = inviterMessage;
+      const tCode = ['eat','drink','play'].map(t => TYPE_INFO[t].code).join(',');
+      const oBlob = btoaUrl(JSON.stringify(optsPayload));
+      let link = `${base}?f=${encodeURIComponent(inviterName)}&t=${tCode}&o=${oBlob}`;
       if (msg) link += `&m=${encodeURIComponent(msg)}`;
 
       document.getElementById('linkText').textContent = link;
       document.getElementById('linkOutput').classList.add('visible');
       document.getElementById('copyBtnGroup').style.display = 'flex';
 
-      // Show options preview
       showOptionsPreview();
     }
 
     function showOptionsPreview() {
       const grid = document.getElementById('previewGrid');
       grid.innerHTML = '';
-      const opts = DEFAULT_OPTIONS[selectedType] || DEFAULT_OPTIONS.eat;
-      opts.forEach(opt => {
-        const item = document.createElement('div');
-        item.className = 'activity-item';
-        item.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
-        grid.appendChild(item);
+      ['eat','drink','play'].forEach(type => {
+        const opts = inviteOptionsByType[type] || (DEFAULT_OPTIONS[type] || []);
+        const info = TYPE_INFO[type];
+        const block = document.createElement('div');
+        block.className = 'preview-block';
+        block.innerHTML = `<div class="preview-block-title">${info.emoji} ${info.label}</div>`;
+        const inner = document.createElement('div');
+        inner.className = 'activity-grid';
+        inner.style.pointerEvents = 'none';
+        inner.style.opacity = '0.85';
+        opts.forEach(opt => {
+          const item = document.createElement('div');
+          item.className = 'activity-item';
+          item.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
+          inner.appendChild(item);
+        });
+        block.appendChild(inner);
+        grid.appendChild(block);
       });
       document.getElementById('optionsPreview').style.display = 'block';
     }
@@ -1084,37 +1284,77 @@
       setTimeout(() => toast.classList.remove('show'), 2000);
     }
 
-    // ===== Step 2: Activity Grid =====
+    // ===== Step 2: Activity Grid (multi-type) =====
     function renderActivityGrid() {
       const grid = document.getElementById('activityGrid');
       grid.innerHTML = '';
 
       const titleEl = document.getElementById('activityTitle');
-      titleEl.textContent = TYPE_INFO[inviteType].titleHint;
+      if (inviteTypes.length === 1) {
+        titleEl.textContent = TYPE_INFO[inviteTypes[0]].titleHint;
+      } else {
+        titleEl.textContent = '每一类都至少选一项 💕';
+      }
 
-      inviteOptions.forEach((opt, idx) => {
-        const item = document.createElement('div');
-        item.className = 'activity-item';
-        item.onclick = () => toggleActivity(item, idx, opt);
-        item.innerHTML = `
-          <span class="emoji">${opt.emoji}</span>
-          <span class="label">${opt.label}</span>
-        `;
-        grid.appendChild(item);
+      inviteTypes.forEach(type => {
+        const opts = inviteOptionsByType[type] || (DEFAULT_OPTIONS[type] || []);
+        const info = TYPE_INFO[type];
+        const block = document.createElement('div');
+        block.className = 'preview-block';
+        block.innerHTML = `<div class="preview-block-title">${info.emoji} ${info.label} <span class="module-required">必选</span></div>`;
+        const inner = document.createElement('div');
+        inner.className = 'activity-grid';
+        opts.forEach((opt, idx) => {
+          const item = document.createElement('div');
+          item.className = 'activity-item';
+          item.onclick = () => toggleActivity(item, type, idx, opt);
+          item.innerHTML = `
+            <span class="emoji">${opt.emoji}</span>
+            <span class="label">${opt.label}</span>
+          `;
+          inner.appendChild(item);
+        });
+        block.appendChild(inner);
+        grid.appendChild(block);
       });
+
+      updateActivityBtn();
     }
 
-    function toggleActivity(el, idx, opt) {
-      const existIdx = selectedActivities.findIndex(a => a.idx === idx);
+    function toggleActivity(el, type, idx, opt) {
+      const existIdx = selectedActivities.findIndex(a => a.type === type && a.idx === idx);
       if (existIdx >= 0) {
         selectedActivities.splice(existIdx, 1);
         el.classList.remove('selected');
       } else {
-        selectedActivities.push({ idx, ...opt });
+        selectedActivities.push({ type, idx, emoji: opt.emoji, label: opt.label });
         el.classList.add('selected');
       }
-      document.getElementById('selectedCount').textContent = selectedActivities.length;
-      document.getElementById('btnActivity').disabled = selectedActivities.length === 0;
+      updateActivityBtn();
+    }
+
+    function updateActivityBtn() {
+      const types = inviteTypes.length ? inviteTypes : ['eat'];
+      const allFilled = types.every(type => selectedActivities.some(a => a.type === type));
+      const total = selectedActivities.length;
+      const cntEl = document.getElementById('selectedCount');
+      if (cntEl) cntEl.textContent = total;
+      const btn = document.getElementById('btnActivity');
+      if (btn) btn.disabled = !allFilled;
+    }
+
+    // ===== Step 1: validate responder nickname =====
+    function validateStep1AndNext() {
+      const name = document.getElementById('responderName').value.trim();
+      if (!name) {
+        const input = document.getElementById('responderName');
+        input.focus();
+        input.classList.add('shake');
+        setTimeout(() => input.classList.remove('shake'), 500);
+        return;
+      }
+      responderName = name;
+      goToStep(2);
     }
 
     // ===== Step 3: Date Slots =====
@@ -1254,18 +1494,23 @@
 
       const locVal = document.getElementById('locationInput').value.trim() || '见面再定';
 
-      // Build confirmation details
+      // Build confirmation details (by type)
       const detailsEl = document.getElementById('confirmDetails');
       detailsEl.innerHTML = '';
 
-      const activityLabels = selectedActivities.map(a => `${a.emoji} ${a.label}`).join('、');
-      detailsEl.innerHTML += `
-        <div class="detail-card full-width">
-          <div class="detail-icon">🎯</div>
-          <div class="detail-label">选了啥</div>
-          <div class="detail-value">${activityLabels}</div>
-        </div>
-      `;
+      const types = inviteTypes.length ? inviteTypes : ['eat'];
+      types.forEach(type => {
+        const info = TYPE_INFO[type] || TYPE_INFO.eat;
+        const acts = selectedActivities.filter(a => a.type === type);
+        const labels = acts.map(a => `${a.emoji} ${a.label}`).join('、') || '（未选）';
+        detailsEl.innerHTML += `
+          <div class="detail-card full-width">
+            <div class="detail-icon">${info.emoji}</div>
+            <div class="detail-label">${info.label}</div>
+            <div class="detail-value">${labels}</div>
+          </div>
+        `;
+      });
 
       dateEntries.forEach((entry, i) => {
         const icon = i === 0 ? '📅' : '➕';
@@ -1287,11 +1532,17 @@
       `;
 
       // Generate result data
+      const activitiesByType = {};
+      types.forEach(type => {
+        activitiesByType[type] = selectedActivities
+          .filter(a => a.type === type)
+          .map(a => ({ e: a.emoji, l: a.label }));
+      });
       const resultData = {
         f: inviterName,
         n: responderName,
-        t: inviteType,
-        a: selectedActivities.map(a => ({ e: a.emoji, l: a.label })),
+        ts: types,
+        a: activitiesByType,
         d: dateEntries.map(e => ({ d: e.date, t: e.time })),
         l: locVal
       };
@@ -1300,10 +1551,15 @@
       const resultLink = `${base}?r=${btoaUrl(JSON.stringify(resultData))}`;
 
       // Generate readable share text
-      const typeInfo = TYPE_INFO[inviteType];
-      const shareLabels = selectedActivities.map(a => `${a.emoji}${a.label}`).join('、');
       let shareText = `💕 ${responderName} 回复了你的约会邀请！\n\n`;
-      shareText += `${typeInfo.emoji} ${typeInfo.label}：${shareLabels}\n`;
+      types.forEach(type => {
+        const info = TYPE_INFO[type] || TYPE_INFO.eat;
+        const acts = selectedActivities.filter(a => a.type === type);
+        if (acts.length) {
+          const labels = acts.map(a => `${a.emoji}${a.label}`).join('、');
+          shareText += `${info.emoji} ${info.label}：${labels}\n`;
+        }
+      });
       dateEntries.forEach((e, i) => {
         shareText += `📅 ${i === 0 ? '' : '备选 '}时间：${e.date} ${e.time}\n`;
       });
@@ -1359,26 +1615,33 @@
     function showResult(encoded) {
       try {
         const data = JSON.parse(atobUrl(encoded));
-        const typeInfo = TYPE_INFO[data.t] || TYPE_INFO.eat;
+        const types = (Array.isArray(data.ts) && data.ts.length) ? data.ts : (data.t ? [data.t] : ['eat']);
 
         document.getElementById('resultTitle').textContent = `${data.n} 回复了你的约会邀请！💕`;
-        document.getElementById('resultSubtitle').textContent = `TA 想跟你${typeInfo.label}，快看看选了什么～`;
+
+        const typeLabels = types.map(t => (TYPE_INFO[t] || TYPE_INFO.eat).label).join(' / ');
+        const subEl = document.getElementById('resultSubtitle');
+        if (subEl) subEl.textContent = `TA 想跟你${typeLabels}，快看看选了什么～`;
 
         const detailsEl = document.getElementById('resultDetails');
         detailsEl.innerHTML = '';
 
-        // Activities
-        const activityLabels = data.a.map(a => `${a.e} ${a.l}`).join('、');
-        detailsEl.innerHTML += `
-          <div class="detail-card full-width">
-            <div class="detail-icon">🎯</div>
-            <div class="detail-label">TA 选了啥</div>
-            <div class="detail-value">${activityLabels}</div>
-          </div>
-        `;
+        // Activities grouped by type
+        types.forEach(type => {
+          const info = TYPE_INFO[type] || TYPE_INFO.eat;
+          const acts = (data.a && data.a[type]) || [];
+          const labels = acts.length ? acts.map(a => `${a.e} ${a.l}`).join('、') : '（未选）';
+          detailsEl.innerHTML += `
+            <div class="detail-card full-width">
+              <div class="detail-icon">${info.emoji}</div>
+              <div class="detail-label">${info.label}</div>
+              <div class="detail-value">${labels}</div>
+            </div>
+          `;
+        });
 
         // Dates
-        data.d.forEach((entry, i) => {
+        (data.d || []).forEach((entry, i) => {
           const icon = i === 0 ? '📅' : '➕';
           detailsEl.innerHTML += `
             <div class="detail-card">
