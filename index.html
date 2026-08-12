@@ -835,7 +835,7 @@
         <h1 class="title">真的不约嘛？🥺</h1>
         <p class="subtitle">好吧...那我再问一次，真的不来吗？</p>
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="goToStep(1)" style="font-size:1.05rem;padding:1rem 2.5rem;">好吧好吧，约约约 💕</button>
+          <button class="btn btn-primary" onclick="handleRescue()" style="font-size:1.05rem;padding:1rem 2.5rem;">好吧好吧，约约约 💕</button>
         </div>
       </div>
     </div>
@@ -1219,6 +1219,19 @@
         reject.style.animation = '';
         reject.classList.add('active');
       }
+    }
+
+    // ===== Rescue Handler (rejection → accept) =====
+    function handleRescue() {
+      const name = document.getElementById('responderName').value.trim();
+      if (!name) {
+        // Empty: send back to step 1 so they can fill it
+        goToStep(1);
+        return;
+      }
+      // Nickname already filled: save and jump to step 2
+      responderName = name;
+      goToStep(2);
     }
 
     // ===== Date Confirmation =====
