@@ -1401,8 +1401,10 @@
 
     // ===== Navigation =====
     function goToStep(n) {
+      const targetId = typeof n === 'string' && n.startsWith('step') ? n : `step${n}`;
+
       // Validate responder name when leaving step 1
-      if (n === 2) {
+      if (targetId === 'step2') {
         const name = document.getElementById('responderName').value.trim();
         if (!name) {
           const input = document.getElementById('responderName');
@@ -1415,14 +1417,14 @@
       }
 
       document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-      const target = document.getElementById(`step${n}`);
+      const target = document.getElementById(targetId);
       if (target) {
         target.style.animation = 'none';
         target.offsetHeight;
         target.style.animation = '';
         target.classList.add('active');
         // Auto-focus responder name when arriving at step 1
-        if (n === 1) {
+        if (targetId === 'step1') {
           setTimeout(() => {
             const inp = document.getElementById('responderName');
             if (inp) inp.focus();
@@ -1430,13 +1432,13 @@
         }
       }
 
-      if (n === 3) {
+      if (targetId === 'step3') {
         if (document.querySelectorAll('.date-slot').length === 0) {
           addDateSlot();
         }
       }
 
-      if (n === 4) {
+      if (targetId === 'step4') {
         setTimeout(launchConfetti, 300);
       }
     }
