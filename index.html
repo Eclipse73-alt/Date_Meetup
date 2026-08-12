@@ -1281,9 +1281,9 @@
 
       // Generate readable share text
       const typeInfo = TYPE_INFO[inviteType];
-      const activityLabels = selectedActivities.map(a => `${a.emoji}${a.label}`).join('、');
+      const shareLabels = selectedActivities.map(a => `${a.emoji}${a.label}`).join('、');
       let shareText = `💕 ${responderName} 回复了你的约会邀请！\n\n`;
-      shareText += `${typeInfo.emoji} ${typeInfo.label}：${activityLabels}\n`;
+      shareText += `${typeInfo.emoji} ${typeInfo.label}：${shareLabels}\n`;
       dateEntries.forEach((e, i) => {
         shareText += `📅 ${i === 0 ? '' : '备选 '}时间：${e.date} ${e.time}\n`;
       });
