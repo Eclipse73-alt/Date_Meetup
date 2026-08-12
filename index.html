@@ -835,7 +835,7 @@
         <h1 class="title">真的不约嘛？🥺</h1>
         <p class="subtitle">好吧...那我再问一次，真的不来吗？</p>
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="goToStep(2)" style="font-size:1.05rem;padding:1rem 2.5rem;">好吧好吧，约约约 💕</button>
+          <button class="btn btn-primary" onclick="goToStep(1)" style="font-size:1.05rem;padding:1rem 2.5rem;">好吧好吧，约约约 💕</button>
         </div>
       </div>
     </div>
@@ -1181,6 +1181,13 @@
         target.offsetHeight;
         target.style.animation = '';
         target.classList.add('active');
+        // Auto-focus responder name when arriving at step 1
+        if (n === 1) {
+          setTimeout(() => {
+            const inp = document.getElementById('responderName');
+            if (inp) inp.focus();
+          }, 350);
+        }
       }
 
       if (n === 3) {
