@@ -809,6 +809,47 @@
       font-weight: 500;
     }
 
+    /* Custom "其他" input mode */
+    .wishlist-item.custom-active {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.3rem 0.35rem;
+      border-color: var(--rose-400);
+      background: #fff;
+      grid-column: span 2;
+    }
+    .wishlist-item.custom-active .custom-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 0.72rem;
+      font-family: inherit;
+      color: var(--rose-700);
+      background: transparent;
+      padding: 0.15rem 0.2rem;
+      min-width: 0;
+    }
+    .wishlist-item.custom-active .custom-input::placeholder {
+      color: var(--rose-300);
+    }
+    .wishlist-item.custom-active .custom-add-btn {
+      border: none;
+      background: linear-gradient(135deg, var(--rose-400), var(--rose-500));
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .wishlist-item.custom-added {
+      animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+    }
+
     /* ========== Heart Burst (from clicked wish) ========== */
     .heart-burst {
       position: fixed;
@@ -1066,7 +1107,7 @@
         { emoji: '🦐', label: '海鲜' },
         { emoji: '🍰', label: '甜点' },
         { emoji: '🦑', label: '铁板鱿鱼' },
-        { emoji: '✨', label: '其他' }
+        { emoji: '✨', label: '其他', custom: true }
       ],
       drink: [
         { emoji: '🧋', label: '古茗' },
@@ -1088,7 +1129,7 @@
         { emoji: '☕', label: '肯悦咖啡' },
         { emoji: '☕', label: '库迪' },
         { emoji: '🥣', label: '糖水' },
-        { emoji: '✨', label: '其他' }
+        { emoji: '✨', label: '其他', custom: true }
       ],
       play: [
         { emoji: '🎬', label: '看电影' },
@@ -1109,7 +1150,7 @@
         { emoji: '🛒', label: '超市购物' },
         { emoji: '🎡', label: '坐摩天轮' },
         { emoji: '🏮', label: '逛夜市' },
-        { emoji: '✨', label: '其他' }
+        { emoji: '✨', label: '其他', custom: true }
       ]
     };
 
@@ -1246,7 +1287,12 @@
           item.className = 'wishlist-item';
           item.dataset.type = type;
           item.dataset.idx = idx;
-          item.onclick = (e) => toggleWishlistPick(item, type, idx, opt, e);
+          if (opt.custom) {
+            item.classList.add('wishlist-custom-trigger');
+            item.onclick = (e) => showCustomInput(item, type, opt, e);
+          } else {
+            item.onclick = (e) => toggleWishlistPick(item, type, idx, opt, e);
+          }
           item.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
           grid.appendChild(item);
         });
@@ -1265,6 +1311,78 @@
       }
       const cnt = selectedActivities.filter(a => a.type === type).length;
       document.getElementById(`count-${type}`).textContent = `心动 ${cnt} 个`;
+      updateWishlistBtn();
+    }
+
+    // ===== Custom "其他" — inline input for TA to type own wish =====
+    function showCustomInput(el, type, opt, event) {
+      if (el.classList.contains('custom-active')) return;
+
+      el.classList.add('custom-active');
+      const verb = type === 'eat' ? '吃' : type === 'drink' ? '喝' : '玩';
+      el.innerHTML = `
+        <input type="text" class="custom-input" placeholder="想${verb}的…" maxlength="12">
+        <button class="custom-add-btn">添加</button>
+      `;
+
+      const input = el.querySelector('.custom-input');
+      const btn = el.querySelector('.custom-add-btn');
+      input.focus();
+
+      const restore = () => {
+        el.classList.remove('custom-active');
+        el.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
+        el.onclick = (e) => showCustomInput(el, type, opt, e);
+      };
+
+      const submit = () => {
+        const val = input.value.trim();
+        if (!val) { restore(); return; }
+        addCustomPick(el, type, opt, val, event);
+      };
+
+      btn.onclick = (e) => { e.stopPropagation(); submit(); };
+      input.onkeydown = (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        if (e.key === 'Escape') { restore(); }
+      };
+    }
+
+    function addCustomPick(triggerEl, type, opt, text, event) {
+      const grid = document.getElementById(`grid-${type}`);
+      const customIdx = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+
+      const customItem = document.createElement('div');
+      customItem.className = 'wishlist-item selected custom-added';
+      customItem.innerHTML = `<span class="emoji">💝</span><span class="label">${text}</span>`;
+
+      selectedActivities.push({ type, idx: customIdx, emoji: '💝', label: text });
+      if (event) burstHearts(event.clientX, event.clientY, 6);
+
+      const cnt = selectedActivities.filter(a => a.type === type).length;
+      document.getElementById(`count-${type}`).textContent = `心动 ${cnt} 个`;
+
+      // Restore the "其他" trigger
+      triggerEl.classList.remove('custom-active');
+      triggerEl.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
+      triggerEl.onclick = (e) => showCustomInput(triggerEl, type, opt, e);
+
+      // Insert custom item before "其他"
+      grid.insertBefore(customItem, triggerEl);
+
+      // Click custom item to deselect
+      customItem.onclick = (e) => {
+        const existIdx = selectedActivities.findIndex(a => a.type === type && a.idx === customIdx);
+        if (existIdx >= 0) {
+          selectedActivities.splice(existIdx, 1);
+          customItem.remove();
+          const cnt2 = selectedActivities.filter(a => a.type === type).length;
+          document.getElementById(`count-${type}`).textContent = `心动 ${cnt2} 个`;
+          updateWishlistBtn();
+        }
+      };
+
       updateWishlistBtn();
     }
 
