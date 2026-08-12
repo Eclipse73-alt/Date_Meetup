@@ -1061,32 +1061,6 @@
       </div>
     </div>
 
-    <!-- Step 4: Confirmation -->
-    <div class="step" id="step4">
-      <div class="card">
-        <div class="deco-row">
-          <span>💕</span><span>💖</span><span>💕</span><span>💖</span><span>💕</span>
-        </div>
-        <h1 class="title">搞定！期待约会～ 💕</h1>
-        <p class="subtitle" id="confirmSubtitle">这是你的选择～</p>
-        <div class="confirm-details" id="confirmDetails"></div>
-        <div class="btn-group" style="flex-direction:column;gap:0.6rem;">
-          <button class="btn btn-primary" id="shareBtn" onclick="tryAutoShare()" style="width:100%;">发送给 TA 💕</button>
-          <button class="btn btn-secondary" onclick="copyResultText()" style="width:100%;">重新复制结果 📋</button>
-        </div>
-        <p class="share-hint" id="shareHint">💕 结果已自动复制，点击「发送给TA」直接分享～</p>
-        <div class="celebrate-bar">
-          <span>💕</span><span>✨</span><span>💖</span><span>✨</span><span>💕</span>
-        </div>
-        <div class="progress-dots">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot active"></span>
-        </div>
-      </div>
-    </div>
-
     <!-- Step Result: Result Page -->
     <div class="step" id="stepResult">
       <div class="card">
@@ -1115,35 +1089,12 @@
       </div>
     </div>
 
-    <!-- Step Wait: Sender waiting for TA's reply -->
-    <div class="step" id="stepWait">
-      <div class="card">
-        <div class="deco-row">
-          <span>💌</span><span>✨</span><span>💕</span><span>✨</span><span>💌</span>
-        </div>
-        <h1 class="title">邀请已发出 💕</h1>
-        <p class="subtitle" id="waitSubtitle">链接已复制，去发给 TA 吧～<br>TA 选完后这里会自动弹出结果 ✨</p>
-        <div class="waiting-animation">
-          <span class="wait-heart">💗</span>
-          <span class="wait-heart">💕</span>
-          <span class="wait-heart">💖</span>
-        </div>
-        <div class="link-output visible" id="waitLinkOutput">
-          <span id="waitLinkText"></span>
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-primary" onclick="copyWaitLink()">复制邀请链接 📋</button>
-        </div>
-        <p class="share-hint pulse" id="waitHint">💕 保持页面打开，TA 选完会自动显示结果～</p>
-      </div>
-    </div>
-
-    <!-- Step Sent: TA pushed result successfully -->
+    <!-- Step Sent: TA confirmed and short result link auto-copied -->
     <div class="step" id="stepSent">
       <div class="card">
         <div class="result-hero">💌</div>
         <h1 class="title">心愿已送达 💕</h1>
-        <p class="subtitle">TA 会自动收到你的回复～<br>等着约会吧！</p>
+        <p class="subtitle">链接已自动复制～<br>打开任意聊天长按粘贴发给 TA！</p>
         <div class="celebrate-bar">
           <span>💕</span><span>✨</span><span>💖</span><span>✨</span><span>💕</span>
         </div>
@@ -1245,7 +1196,6 @@
     let inviteOptionsByType = {};
     let responderName = '';
     let dateSlotCount = 0;
-    let ntfyTopic = '';  // ntfy.sh topic for auto-push results
 
     // ===== Init =====
     (function init() {
@@ -1265,197 +1215,24 @@
       return decodeURIComponent(escape(atob(b64)));
     }
 
-    // ===== ntfy.sh push service (zero-config, no backend needed) =====
-    const NTFY_BASE = 'https://ntfy.sh';
-    let _pollTimer = null;
-    let _pollSeen = new Set();
-    let _ws = null;
-    let _wsConnected = false;
-
-    function genTopic() {
-      return 'dm_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-    }
-
-    // TA side: push result to ntfy.sh
-    // Uses sendBeacon first (no CORS preflight → works in WeChat X5)
-    // Falls back to fetch with 8s timeout
-    function pushResult(topic, data) {
-      const body = JSON.stringify(data);
-
-      // Method 1: sendBeacon (fire-and-forget, no preflight)
-      if (navigator.sendBeacon) {
-        const blob = new Blob([body], { type: 'text/plain' });
-        if (navigator.sendBeacon(NTFY_BASE + '/' + topic, blob)) {
-          return Promise.resolve({ ok: true });
-        }
-      }
-
-      // Method 2: fetch with timeout
-      return new Promise((resolve, reject) => {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        fetch(NTFY_BASE + '/' + topic, {
-          method: 'POST',
-          body: body,
-          headers: { 'Content-Type': 'text/plain' },
-          signal: ctrl.signal
-        }).then(res => { clearTimeout(timer); resolve(res); })
-          .catch(err => { clearTimeout(timer); reject(err); });
-      });
-    }
-
-    // Sender side: poll ntfy.sh for results
-    // WebSocket (real-time, no CORS preflight) + fetch polling fallback
-    function startPolling(topic, onResult) {
-      _pollSeen.clear();
-      _wsConnected = false;
-
-      const updateStatus = (text) => {
-        const el = document.getElementById('waitHint');
-        if (el) el.textContent = text;
-      };
-
-      // Method 1: WebSocket (no preflight, real-time)
-      try {
-        const wsUrl = NTFY_BASE.replace('https://', 'wss://') + '/' + topic + '/ws';
-        _ws = new WebSocket(wsUrl);
-        _ws.onopen = () => {
-          _wsConnected = true;
-          updateStatus('💕 已连接！保持页面打开，TA 选完自动弹出～');
-          if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-        };
-        _ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.event === 'message' && msg.id && !_pollSeen.has(msg.id)) {
-              _pollSeen.add(msg.id);
-              const data = JSON.parse(msg.message);
-              onResult(data);
-            }
-          } catch(e) { /* skip */ }
-        };
-        _ws.onerror = () => {
-          _wsConnected = false;
-          updateStatus('💕 正在等待 TA 的回复～');
-          if (!_pollTimer) _startFetchPoll(topic, onResult, updateStatus);
-        };
-      } catch(e) {
-        if (!_pollTimer) _startFetchPoll(topic, onResult, updateStatus);
-      }
-
-      // Also start fetch polling as backup (stopped when WS connects)
-      if (!_pollTimer) _startFetchPoll(topic, onResult, updateStatus);
-    }
-
-    function _startFetchPoll(topic, onResult, updateStatus) {
-      const poll = () => {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        fetch(NTFY_BASE + '/' + topic + '/json?poll=1', { signal: ctrl.signal })
-          .then(r => r.text())
-          .then(text => {
-            if (!_wsConnected) updateStatus('💕 已连接！保持页面打开，TA 选完自动弹出～');
-            text.split('\n').filter(Boolean).forEach(line => {
-              try {
-                const msg = JSON.parse(line);
-                if (msg.event === 'message' && msg.id && !_pollSeen.has(msg.id)) {
-                  _pollSeen.add(msg.id);
-                  const data = JSON.parse(msg.message);
-                  onResult(data);
-                }
-              } catch (e) { /* skip */ }
-            });
-          })
-          .catch(() => {
-            if (!_wsConnected) updateStatus('💕 正在等待 TA 的回复～');
-          })
-          .finally(() => clearTimeout(timer));
-      };
-      poll();
-      _pollTimer = setInterval(poll, 5000);
-    }
-
-    function stopPolling() {
-      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-      if (_ws) { try { _ws.close(); } catch(e) {} _ws = null; }
-      _wsConnected = false;
-    }
-
-    // Sender side: show received result (from ntfy push)
-    function showReceivedResult(data) {
-      stopPolling();
-      const types = (Array.isArray(data.ts) && data.ts.length) ? data.ts : ['eat'];
-
-      document.getElementById('resultTitle').textContent = `${data.n} 回复了你的约会邀请！💕`;
-
-      const typeLabels = types.map(t => (TYPE_INFO[t] || TYPE_INFO.eat).label).join(' / ');
-      const subEl = document.getElementById('resultSubtitle');
-      if (subEl) subEl.textContent = `TA 想跟你${typeLabels}，快看看选了什么～`;
-
-      const detailsEl = document.getElementById('resultDetails');
-      detailsEl.innerHTML = '';
-
-      types.forEach(type => {
-        const info = TYPE_INFO[type] || TYPE_INFO.eat;
-        const acts = (data.a && data.a[type]) || [];
-        const labels = acts.length ? acts.map(a => `${a.e} ${a.l}`).join('、') : '（未选）';
-        detailsEl.innerHTML += `
-          <div class="detail-card full-width">
-            <div class="detail-icon">${info.emoji}</div>
-            <div class="detail-label">${info.label}</div>
-            <div class="detail-value">${labels}</div>
-          </div>
-        `;
-      });
-
-      (data.d || []).forEach((entry, i) => {
-        const icon = i === 0 ? '📅' : '➕';
-        detailsEl.innerHTML += `
-          <div class="detail-card">
-            <div class="detail-icon">${icon}</div>
-            <div class="detail-label">时间段 ${i + 1}</div>
-            <div class="detail-value">${entry.d}<br>${entry.t}</div>
-          </div>
-        `;
-      });
-
-      detailsEl.innerHTML += `
-        <div class="detail-card full-width">
-          <div class="detail-icon">📍</div>
-          <div class="detail-label">见面地点</div>
-          <div class="detail-value">${data.l}</div>
-        </div>
-      `;
-
-      goToStep('stepResult');
-      setTimeout(launchConfetti, 300);
-    }
-
-    function copyWaitLink() {
-      const link = document.getElementById('waitLinkText').textContent;
-      copyToClipboard(link);
-    }
-
     // ===== Mode Detection =====
     function checkMode() {
       const params = new URLSearchParams(window.location.search);
 
-      // Result mode: ?r=<base64> (fallback — ntfy.sh not used)
+      // Result mode: ?r=<base64>
       const r = params.get('r');
       if (r) {
         showResult(r);
         return;
       }
 
-      // Invited mode: ?f=<name>[&m=<msg>][&n=<ntfy_topic>]
+      // Invited mode: ?f=<name>[&m=<msg>]
       const f = params.get('f');
       const m = params.get('m');
-      const nTopic = params.get('n');
 
       if (f) {
         inviterName = f;
         inviterMessage = m || '';
-        ntfyTopic = nTopic || '';  // TA side: topic to push result to
         inviteTypes = ['eat', 'drink', 'play'];
         inviteOptionsByType = {};
         ['eat','drink','play'].forEach(type => {
@@ -1475,28 +1252,8 @@
 
         document.getElementById('step1').classList.add('active');
       } else {
-        // Sender mode — check if we have a pending ntfy topic (page reopened)
-        const savedTopic = localStorage.getItem('dm_topic');
-        const savedName = localStorage.getItem('dm_inviter');
-        if (savedTopic && savedName) {
-          inviterName = savedName;
-          inviterMessage = localStorage.getItem('dm_msg') || '';
-          ntfyTopic = savedTopic;
-
-          // Restore wait page
-          const base = window.location.origin + window.location.pathname;
-          let link = `${base}?f=${encodeURIComponent(savedName)}`;
-          if (inviterMessage) link += `&m=${encodeURIComponent(inviterMessage)}`;
-          link += `&n=${savedTopic}`;
-          document.getElementById('waitLinkText').textContent = link;
-
-          goToStep('stepWait');
-          startPolling(savedTopic, (data) => {
-            showReceivedResult(data);
-          });
-        } else {
-          document.getElementById('step0').classList.add('active');
-        }
+        // Sender mode
+        document.getElementById('step0').classList.add('active');
       }
     }
 
@@ -1513,30 +1270,18 @@
       inviterName = name;
       inviterMessage = document.getElementById('senderMessage').value.trim();
 
-      // Create ntfy.sh topic for auto-push (TA's result comes back here)
-      ntfyTopic = genTopic();
-      localStorage.setItem('dm_topic', ntfyTopic);
-      localStorage.setItem('dm_inviter', inviterName);
-      localStorage.setItem('dm_msg', inviterMessage);
-
       const base = window.location.origin + window.location.pathname;
       let link = `${base}?f=${encodeURIComponent(name)}`;
       if (inviterMessage) link += `&m=${encodeURIComponent(inviterMessage)}`;
-      link += `&n=${ntfyTopic}`;
 
-      // Show link on wait page
-      document.getElementById('waitLinkText').textContent = link;
+      // Show link in result area
+      document.getElementById('linkText').textContent = link;
+      document.getElementById('linkOutput').classList.add('visible');
+      document.getElementById('copyBtnGroup').style.display = 'flex';
 
-      // Auto-copy link
+      // Auto-copy invite link
       copyToClipboard(link);
-
-      // Go to wait page
-      goToStep('stepWait');
-
-      // Start polling for result
-      startPolling(ntfyTopic, (data) => {
-        showReceivedResult(data);
-      });
+      showToast('链接已复制！去发给 TA 💕');
     }
 
     function burstHearts(x, y, count) {
@@ -1813,10 +1558,6 @@
           addDateSlot();
         }
       }
-
-      if (targetId === 'step4') {
-        setTimeout(launchConfetti, 300);
-      }
     }
 
     // ===== Reject Handler =====
@@ -1873,44 +1614,7 @@
 
       const locVal = document.getElementById('locationInput').value.trim() || '见面再定';
 
-      // Build confirmation details (by type)
-      const detailsEl = document.getElementById('confirmDetails');
-      detailsEl.innerHTML = '';
-
       const types = inviteTypes.length ? inviteTypes : ['eat'];
-      types.forEach(type => {
-        const info = TYPE_INFO[type] || TYPE_INFO.eat;
-        const acts = selectedActivities.filter(a => a.type === type);
-        const labels = acts.map(a => `${a.emoji} ${a.label}`).join('、') || '（未选）';
-        detailsEl.innerHTML += `
-          <div class="detail-card full-width">
-            <div class="detail-icon">${info.emoji}</div>
-            <div class="detail-label">${info.label}</div>
-            <div class="detail-value">${labels}</div>
-          </div>
-        `;
-      });
-
-      dateEntries.forEach((entry, i) => {
-        const icon = i === 0 ? '📅' : '➕';
-        detailsEl.innerHTML += `
-          <div class="detail-card">
-            <div class="detail-icon">${icon}</div>
-            <div class="detail-label">时间段 ${i + 1}</div>
-            <div class="detail-value">${entry.date}<br>${entry.time}</div>
-          </div>
-        `;
-      });
-
-      detailsEl.innerHTML += `
-        <div class="detail-card full-width">
-          <div class="detail-icon">📍</div>
-          <div class="detail-label">见面地点</div>
-          <div class="detail-value">${locVal}</div>
-        </div>
-      `;
-
-      // Generate result data
       const activitiesByType = {};
       types.forEach(type => {
         activitiesByType[type] = selectedActivities
@@ -1926,107 +1630,17 @@
         l: locVal
       };
 
-      // ===== Path A: ntfy.sh auto-push (TA doesn't need to manually forward) =====
-      if (ntfyTopic) {
-        pushResult(ntfyTopic, resultData)
-          .then(() => {
-            goToStep('stepSent');
-            setTimeout(launchConfetti, 300);
-          })
-          .catch(() => {
-            // Push failed — fallback to copy + paste
-            _fallbackCopyResult(types, dateEntries, locVal, resultData);
-          });
-        return;
-      }
-
-      // ===== Path B: Fallback — no ntfy topic, use result link =====
-      _fallbackCopyResult(types, dateEntries, locVal, resultData);
-    }
-
-    // Fallback: generate result link + copy to clipboard (when ntfy.sh unavailable)
-    function _fallbackCopyResult(types, dateEntries, locVal, resultData) {
+      // Generate short base64 result link
       const base = window.location.origin + window.location.pathname;
       const resultLink = `${base}?r=${btoaUrl(JSON.stringify(resultData))}`;
 
-      let shareText = `💕 ${responderName} 回复了你的约会邀请！\n\n`;
-      types.forEach(type => {
-        const info = TYPE_INFO[type] || TYPE_INFO.eat;
-        const acts = selectedActivities.filter(a => a.type === type);
-        if (acts.length) {
-          const labels = acts.map(a => `${a.emoji}${a.label}`).join('、');
-          shareText += `${info.emoji} ${info.label}：${labels}\n`;
-        }
-      });
-      dateEntries.forEach((e, i) => {
-        shareText += `📅 ${i === 0 ? '' : '备选 '}时间：${e.date} ${e.time}\n`;
-      });
-      shareText += `📍 地点：${locVal}\n`;
-      shareText += `\n详情：${resultLink}`;
-
-      window._shareText = shareText;
+      // Auto-copy result link to clipboard
+      copyToClipboard(resultLink);
       window._shareLink = resultLink;
 
-      document.getElementById('confirmSubtitle').textContent = `结果已自动复制，发给 ${inviterName} 吧～`;
-
-      const combined = `${shareText}\n${resultLink}`;
-      copyToClipboard(combined);
-
-      const hintEl = document.getElementById('shareHint');
-      const isWechat = /MicroMessenger/i.test(navigator.userAgent || '');
-      if (isWechat) {
-        hintEl.textContent = '💕 内容已复制！打开任意聊天长按粘贴发送～';
-        hintEl.classList.add('pulse');
-      } else {
-        hintEl.textContent = '💕 结果已自动复制！去微信粘贴发给 TA～';
-        hintEl.classList.remove('pulse');
-      }
-
-      goToStep(4);
-    }
-
-    function tryAutoShare() {
-      const text = window._shareText || '';
-      const url = window._shareLink || '';
-      const combined = url ? `${text}\n${url}` : text;
-
-      // 微信内置浏览器里 navigator.share 会调起"转发当前网页卡片"面板，
-      // 对方收到的是页面标题+链接，不是 TA 选的文字。直接绕过，走复制+粘贴。
-      const isWechat = /MicroMessenger/i.test(navigator.userAgent || '');
-
-      if (isWechat) {
-        copyToClipboard(combined);
-        burstHearts(window.innerWidth / 2, window.innerHeight / 3, 12);
-        const hintEl = document.getElementById('shareHint');
-        if (hintEl) {
-          hintEl.textContent = '💕 内容已复制！打开任意聊天长按粘贴发送～';
-          hintEl.style.display = 'block';
-          hintEl.classList.add('pulse');
-        }
-        showToast('已复制，去聊天粘贴 💕');
-        return;
-      }
-
-      if (navigator.share) {
-        navigator.share({
-          title: '💕 约会回复',
-          text: text,
-          url: url
-        }).catch(() => {
-          copyToClipboard(combined);
-          showToast('已复制，去微信粘贴 💕');
-        });
-      } else {
-        copyToClipboard(combined);
-        showToast('已复制！去微信粘贴发给 TA 💕');
-      }
-    }
-
-    function copyResultText() {
-      const text = window._shareText || '';
-      const url = window._shareLink || '';
-      copyToClipboard(url ? `${text}\n${url}` : text);
-      showToast('已复制，去微信粘贴 💕');
+      // Go to "心愿已送达" page
+      goToStep('stepSent');
+      setTimeout(launchConfetti, 300);
     }
 
     // ===== Result Page =====
@@ -2088,10 +1702,6 @@
     }
 
     function startNew() {
-      stopPolling();
-      localStorage.removeItem('dm_topic');
-      localStorage.removeItem('dm_inviter');
-      localStorage.removeItem('dm_msg');
       window.location.href = window.location.origin + window.location.pathname;
     }
 
