@@ -626,6 +626,16 @@
       font-weight: 500;
     }
 
+    .share-hint.pulse {
+      animation: hintPulse 1.2s ease-in-out infinite;
+      color: var(--rose-600);
+    }
+
+    @keyframes hintPulse {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.04); opacity: 1; }
+    }
+
     /* ========== Result Page ========== */
     .result-hero {
       font-size: 3.5rem;
@@ -1669,15 +1679,19 @@
 
       document.getElementById('confirmSubtitle').textContent = `结果已自动复制，发给 ${inviterName} 吧～`;
 
-      // Auto-copy to clipboard
-      copyToClipboard(shareText);
+      // Auto-copy combined text + link to clipboard (works in WeChat too)
+      const combined = `${shareText}\n${resultLink}`;
+      copyToClipboard(combined);
 
       // Update share hint based on environment
       const hintEl = document.getElementById('shareHint');
-      if (navigator.share) {
-        hintEl.textContent = '💕 点击「发送给TA」直接分享～';
+      const isWechat = /MicroMessenger/i.test(navigator.userAgent || '');
+      if (isWechat) {
+        hintEl.textContent = '💕 内容已复制！打开任意聊天长按粘贴发送～';
+        hintEl.classList.add('pulse');
       } else {
         hintEl.textContent = '💕 结果已自动复制！去微信粘贴发给 TA～';
+        hintEl.classList.remove('pulse');
       }
 
       goToStep(4);
@@ -1686,6 +1700,24 @@
     function tryAutoShare() {
       const text = window._shareText || '';
       const url = window._shareLink || '';
+      const combined = url ? `${text}\n${url}` : text;
+
+      // 微信内置浏览器里 navigator.share 会调起"转发当前网页卡片"面板，
+      // 对方收到的是页面标题+链接，不是 TA 选的文字。直接绕过，走复制+粘贴。
+      const isWechat = /MicroMessenger/i.test(navigator.userAgent || '');
+
+      if (isWechat) {
+        copyToClipboard(combined);
+        burstHearts(window.innerWidth / 2, window.innerHeight / 3, 12);
+        const hintEl = document.getElementById('shareHint');
+        if (hintEl) {
+          hintEl.textContent = '💕 内容已复制！打开任意聊天长按粘贴发送～';
+          hintEl.style.display = 'block';
+          hintEl.classList.add('pulse');
+        }
+        showToast('已复制，去聊天粘贴 💕');
+        return;
+      }
 
       if (navigator.share) {
         navigator.share({
@@ -1693,19 +1725,20 @@
           text: text,
           url: url
         }).catch(() => {
-          // User cancelled or share failed — already auto-copied
+          copyToClipboard(combined);
           showToast('已复制，去微信粘贴 💕');
         });
       } else {
-        // No Web Share API — text already auto-copied, just remind
-        copyToClipboard(text);
+        copyToClipboard(combined);
         showToast('已复制！去微信粘贴发给 TA 💕');
       }
     }
 
     function copyResultText() {
       const text = window._shareText || '';
-      copyToClipboard(text);
+      const url = window._shareLink || '';
+      copyToClipboard(url ? `${text}\n${url}` : text);
+      showToast('已复制，去微信粘贴 💕');
     }
 
     // ===== Result Page =====
