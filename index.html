@@ -705,6 +705,129 @@
       padding-left: 0.2rem;
     }
 
+    /* ========== Wishlist (Step 0b) ========== */
+    .wishlist-block {
+      background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255, 245, 248, 0.8));
+      border: 1.5px dashed var(--rose-200);
+      border-radius: 18px;
+      padding: 1rem 1rem 1.2rem;
+      margin-top: 1.2rem;
+      position: relative;
+      transition: all var(--transition);
+    }
+    .wishlist-block:hover {
+      border-color: var(--rose-300);
+      box-shadow: 0 4px 16px rgba(244, 114, 182, 0.08);
+    }
+    .wishlist-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.8rem;
+    }
+    .wishlist-emoji { font-size: 1.2rem; }
+    .wishlist-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--rose-700);
+      letter-spacing: 0.02em;
+    }
+    .wishlist-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(244, 114, 182, 0.12);
+      font-size: 0.75rem;
+      animation: heartbeat 1.6s ease-in-out infinite;
+    }
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      15% { transform: scale(1.18); }
+      30% { transform: scale(1); }
+      45% { transform: scale(1.12); }
+    }
+    .wishlist-count {
+      margin-left: auto;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--rose-500);
+      background: rgba(244, 114, 182, 0.08);
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+    }
+    .wishlist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+      gap: 0.5rem;
+    }
+    .wishlist-item {
+      background: #fff;
+      border: 1.5px solid var(--rose-100);
+      border-radius: 12px;
+      padding: 0.55rem 0.3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+      position: relative;
+    }
+    .wishlist-item:hover {
+      border-color: var(--rose-300);
+      transform: translateY(-2px);
+    }
+    .wishlist-item.selected {
+      background: linear-gradient(135deg, #fff, var(--rose-50));
+      border-color: var(--rose-500);
+      box-shadow: 0 4px 14px rgba(244, 114, 182, 0.25);
+    }
+    .wishlist-item.selected::after {
+      content: '💗';
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 1rem;
+      animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes pop {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.4); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .wishlist-item .emoji {
+      display: block;
+      font-size: 1.4rem;
+      line-height: 1.2;
+      margin-bottom: 0.15rem;
+    }
+    .wishlist-item .label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--rose-700);
+      font-weight: 500;
+    }
+
+    /* ========== Heart Burst (from clicked wish) ========== */
+    .heart-burst {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      font-size: 1.2rem;
+      animation: burst 1s ease-out forwards;
+    }
+    @keyframes burst {
+      0% {
+        transform: translate(0,0) scale(0.3) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--dx, 0), var(--dy, -60px)) scale(1) rotate(var(--rot, 0deg));
+        opacity: 0;
+      }
+    }
+
     /* ========== Responsive ========== */
     @media (width < 400px) {
       .card { padding: 2rem 1.2rem 1.5rem; }
@@ -753,50 +876,50 @@
       </div>
     </div>
 
-    <!-- Step 0b: Must-pick 3 modules (eat / drink / play) -->
+    <!-- Step 0b: Wishlist — 3 must-pick modules -->
     <div class="step" id="step0b">
       <div class="card">
         <div class="deco-row">
-          <span>🍽️</span><span>🧋</span><span>🎮</span><span>💕</span><span>✨</span>
+          <span>💗</span><span>✨</span><span>💖</span><span>✨</span><span>💗</span>
         </div>
-        <h1 class="title">挑挑约会菜单 💕</h1>
-        <p class="subtitle">三个类别都选至少一项，让 TA 来挑具体的～</p>
+        <h1 class="title">许个愿吧 💕</h1>
+        <p class="subtitle">写下你希望这次约会的味道，三栏各勾几个，TA 来翻牌～</p>
 
         <!-- Eat module -->
-        <div class="module-block" data-module="eat">
-          <div class="module-header">
-            <span class="module-emoji">🍽️</span>
-            <span class="module-title">吃点什么</span>
-            <span class="module-required">必选</span>
-            <span class="module-count" id="count-eat">已选 0</span>
+        <div class="wishlist-block" data-module="eat">
+          <div class="wishlist-header">
+            <span class="wishlist-emoji">🍽️</span>
+            <span class="wishlist-title">我想一起吃</span>
+            <span class="wishlist-badge" title="必选一栏">❤️</span>
+            <span class="wishlist-count" id="count-eat">心动 0 个</span>
           </div>
-          <div class="module-grid" id="grid-eat"></div>
+          <div class="wishlist-grid" id="grid-eat"></div>
         </div>
 
         <!-- Drink module -->
-        <div class="module-block" data-module="drink">
-          <div class="module-header">
-            <span class="module-emoji">🧋</span>
-            <span class="module-title">喝点什么</span>
-            <span class="module-required">必选</span>
-            <span class="module-count" id="count-drink">已选 0</span>
+        <div class="wishlist-block" data-module="drink">
+          <div class="wishlist-header">
+            <span class="wishlist-emoji">🧋</span>
+            <span class="wishlist-title">我想一起喝</span>
+            <span class="wishlist-badge" title="必选一栏">❤️</span>
+            <span class="wishlist-count" id="count-drink">心动 0 个</span>
           </div>
-          <div class="module-grid" id="grid-drink"></div>
+          <div class="wishlist-grid" id="grid-drink"></div>
         </div>
 
         <!-- Play module -->
-        <div class="module-block" data-module="play">
-          <div class="module-header">
-            <span class="module-emoji">🎮</span>
-            <span class="module-title">玩点什么</span>
-            <span class="module-required">必选</span>
-            <span class="module-count" id="count-play">已选 0</span>
+        <div class="wishlist-block" data-module="play">
+          <div class="wishlist-header">
+            <span class="wishlist-emoji">🎮</span>
+            <span class="wishlist-title">我想一起玩</span>
+            <span class="wishlist-badge" title="必选一栏">❤️</span>
+            <span class="wishlist-count" id="count-play">心动 0 个</span>
           </div>
-          <div class="module-grid" id="grid-play"></div>
+          <div class="wishlist-grid" id="grid-play"></div>
         </div>
 
         <div class="btn-group">
-          <button class="btn btn-primary" id="btnGenFinal" onclick="generateFinalLink()" disabled>三栏都选完才能生成 ✨</button>
+          <button class="btn btn-primary" id="btnGenFinal" onclick="generateFinalLink()" disabled>许完三个愿望才能生成 ✨</button>
           <button class="btn btn-secondary" onclick="goToStep('step0')">← 上一步</button>
         </div>
 
@@ -1137,7 +1260,7 @@
       }
     }
 
-    // ===== Sender: render three modules (eat/drink/play) =====
+    // ===== Sender: render three wishlist sections (eat/drink/play) =====
     function renderSenderModules() {
       ['eat', 'drink', 'play'].forEach(type => {
         const grid = document.getElementById(`grid-${type}`);
@@ -1146,35 +1269,56 @@
         const opts = DEFAULT_OPTIONS[type] || [];
         opts.forEach((opt, idx) => {
           const item = document.createElement('div');
-          item.className = 'activity-item';
+          item.className = 'wishlist-item';
           item.dataset.type = type;
           item.dataset.idx = idx;
-          item.onclick = () => toggleSenderPick(item, type, idx);
+          item.onclick = (e) => toggleSenderPick(item, type, idx, e);
           item.innerHTML = `<span class="emoji">${opt.emoji}</span><span class="label">${opt.label}</span>`;
           grid.appendChild(item);
         });
       });
     }
 
-    function toggleSenderPick(el, type, idx) {
+    function toggleSenderPick(el, type, idx, event) {
       const picks = senderPicks[type];
       const existIdx = picks.indexOf(idx);
+      const willSelect = existIdx < 0;
       if (existIdx >= 0) {
         picks.splice(existIdx, 1);
         el.classList.remove('selected');
       } else {
         picks.push(idx);
         el.classList.add('selected');
+        // Spawn heart burst at click point
+        if (event) burstHearts(event.clientX, event.clientY, willSelect ? 6 : 2);
       }
-      document.getElementById(`count-${type}`).textContent = `已选 ${picks.length}`;
+      document.getElementById(`count-${type}`).textContent = `心动 ${picks.length} 个`;
       updateGenFinalBtn();
+    }
+
+    function burstHearts(x, y, count) {
+      const hearts = ['💗', '💕', '💖', '✨', '🌸'];
+      for (let i = 0; i < count; i++) {
+        const span = document.createElement('span');
+        span.className = 'heart-burst';
+        span.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 40 + Math.random() * 60;
+        span.style.left = x + 'px';
+        span.style.top = y + 'px';
+        span.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        span.style.setProperty('--dy', Math.sin(angle) * dist - 40 + 'px');
+        span.style.setProperty('--rot', (Math.random() * 360 - 180) + 'deg');
+        document.body.appendChild(span);
+        setTimeout(() => span.remove(), 1100);
+      }
     }
 
     function updateGenFinalBtn() {
       const allFilled = ['eat','drink','play'].every(t => senderPicks[t].length > 0);
       const btn = document.getElementById('btnGenFinal');
       btn.disabled = !allFilled;
-      btn.textContent = allFilled ? '生成完整邀请链接 ✨' : '三栏都至少选一项 ✨';
+      btn.textContent = allFilled ? '许完愿，生成链接 💌' : '三栏都至少许一个愿 ✨';
     }
 
     // ===== Step 0: validate & go to step 0b =====
